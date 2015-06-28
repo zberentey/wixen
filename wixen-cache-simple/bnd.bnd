@@ -1,0 +1,8 @@
+Bundle-Version: 1.0.0.${tstamp}
+-buildpath:  \
+	../cnf/plugins/org.apache.felix.dependencymanager.annotation-3.2.0.jar;version=file,\
+	wixen-cache;version=latest,\
+	hamcrest-core,\
+	junit;version=4.11
+Export-Package:  \
+	org.darkvault.wixen.cache.simple
