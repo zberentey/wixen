@@ -2,7 +2,9 @@ Bundle-Version: 1.0.0.${tstamp}
 -buildpath:  \
 	org.ops4j.pax.logging.pax-logging-api,\
 	javax.persistence,\
-	wixen-cache;version=latest
+	wixen-cache;version=latest,\
+	junit;version=4.11,\
+	hamcrest-core
 Export-Package:  \
 	org.darkvault.wixen.jpa.model,\
 	org.darkvault.wixen.jpa.persistence
