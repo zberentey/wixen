@@ -45,7 +45,8 @@ javac.target:          1.7
 ## example, to add one additional plugin to the list defined in
 ## ext/repositories.bnd:
 # -plugin: ${ext.repositories.-plugin}, org.example.MyPlugin
-
+-plugin: ${ext.repositories.-plugin}
+-plugin.dmannotations = org.apache.felix.dm.annotation.plugin.bnd.AnnotationPlugin;path:=${plugin-dir}/org.apache.felix.dependencymanager.annotation-3.2.0.jar;build-import-export-service=false
 
 ## To enable baselining, uncomment the following lines:
 # -baseline: *
