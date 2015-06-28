@@ -1,8 +1,8 @@
 -buildpath:  \
 	org.apache.geronimo.specs.geronimo-jta_1.1_spec,\
-	osgi.core;version=latest,\
-	osgi.cmpn;version=latest,\
-	org.apache.felix.dependencymanager
+	org.apache.felix.dependencymanager,\
+	osgi.core;version='[5.0,6.0)',\
+	osgi.cmpn;version=latest
 	
 Private-Package:  \
 	org.darkvault.wixen.jta.manager
