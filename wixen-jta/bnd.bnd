@@ -1,0 +1,12 @@
+-buildpath:  \
+	org.apache.geronimo.specs.geronimo-jta_1.1_spec,\
+	osgi.core;version=latest,\
+	osgi.cmpn;version=latest,\
+	org.apache.felix.dependencymanager
+	
+Private-Package:  \
+	org.darkvault.wixen.jta.manager
+Bundle-Version:1.0.0
+Bundle-Activator: org.darkvault.wixen.jta.manager.Activator
+Export-Package:  \
+	org.darkvault.wixen.jta
