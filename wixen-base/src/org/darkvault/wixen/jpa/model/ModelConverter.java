@@ -176,9 +176,9 @@ public abstract class ModelConverter {
 				}
 
 				converters.add(converter);
-			}
 
-			bitmask = bitmask * 2;
+				bitmask = bitmask * 2;
+			}
 		}
 
 		_modelAttributeConverters.put(jpaModelClass.getName(), converters);
