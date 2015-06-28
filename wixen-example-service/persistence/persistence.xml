@@ -1,0 +1,21 @@
+<persistence version="2.1"
+	xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_1.xsd">
+
+	<persistence-unit name="ExampleServicePU" transaction-type="JTA">
+		<provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+		<jta-data-source>
+			<![CDATA[osgi:javax.sql.DataSource/(name=WixenDS)]]>
+    	</jta-data-source>
+
+		<shared-cache-mode>DISABLE_SELECTIVE</shared-cache-mode>
+
+		<class>org.darkvault.wixen.example.model.jpa.JpaExample</class>
+
+		<exclude-unlisted-classes>true</exclude-unlisted-classes>
+
+		<properties>
+			<property name="eclipselink.ddl-generation" value="drop-and-create-tables"/>
+		</properties>
+	</persistence-unit>
+</persistence>
