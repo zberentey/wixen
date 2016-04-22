@@ -12,6 +12,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.TypedQuery;
 
+import org.apache.commons.lang3.StringUtils;
 import org.darkvault.wixen.cache.CacheUtil;
 import org.darkvault.wixen.cache.GenericCache;
 import org.darkvault.wixen.jpa.model.Finder;
@@ -20,10 +21,13 @@ import org.darkvault.wixen.jpa.model.ModelConverter;
 
 public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M> {
 
+	@SuppressWarnings("unchecked")
 	public BasePersistenceImpl() {
 		ModelConverter.registerJpaModel(getJpaModelClass());
 
 		_registerFinders();
+
+		_nullModel = (M)ModelConverter.newModel(getJpaModelClass());
 	}
 
 	@Override
@@ -82,6 +86,18 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 		return model;
 	}
 
+	@SuppressWarnings("unchecked")
+	public void remove(M model) {
+		J jpaModel = (J)ModelConverter.fromModel(model);
+
+		EntityManager entityManager = getEntityManager();
+
+		jpaModel = entityManager.merge(jpaModel);
+		entityManager.remove(jpaModel);
+
+		_clearFindersCacheAfterDelete(model);
+	}
+
 	@Override
 	@SuppressWarnings("unchecked")
 	public void update(M model) {
@@ -89,15 +105,20 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 
 		long primaryKey = ModelConverter.getPrimaryKey(model);
 
+		removeResult(primaryKey);
+
+		J jpaModel;
+
 		if (primaryKey == 0) {
-			J jpaModel = (J)ModelConverter.fromModel(model);
+			jpaModel = (J)ModelConverter.fromModel(model);
 
 			// do an explicit insert
 
 			entityManager.persist(jpaModel);
+			entityManager.flush();
 		}
 		else {
-			J jpaModel = entityManager.find(getJpaModelClass(), primaryKey);
+			jpaModel = entityManager.find(getJpaModelClass(), primaryKey);
 
 			// we just need to set the properties, entity manager will automatically persist
 			// the changes
@@ -105,7 +126,9 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 			ModelConverter.fromModel(model, jpaModel);
 		}
 
-		_clearUniqueFindersCache(model);
+		ModelConverter.setPrimaryKeyFromJpaModel(model, jpaModel);
+
+		_clearFindersCacheAfterUpdate(model);
 
 		cacheResult(model);
 	}
@@ -127,9 +150,9 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 		long primaryKey = ModelConverter.getPrimaryKey(model);
 
 		if (primaryKey > 0) {
-			cacheResult(model, "", primaryKey);
-
 			_updateUniqueFindersCache(model);
+
+			cacheResult(model, "", primaryKey);
 		}
 	}
 
@@ -140,13 +163,24 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 		cache.put(_getCacheKey(args), model);
 	}
 
-	protected M findUniqueCacheResult(String finderName, Object... args) {
-		Class<M> modelClass = _getModelClass();
+	protected void cacheResult(FinderDefinition finderDefinition, M model)
+		throws Exception {
 
 		GenericCache<M> cache = CacheUtil.getGenericCache(
-			_getCacheName(finderName), modelClass);
+			_getCacheName(finderDefinition.getName()), _getModelClass());
 
-		return cache.get(_getCacheKey(args));
+		if (!finderDefinition.hasLocalizedColumns()) {
+			cache.put(_getCacheKey(_getFinderArgs(model, finderDefinition)), model);
+
+			return;
+		}
+
+		String[] languages = ModelConverter.getLocalizations(model, finderDefinition.getColumns());
+
+		for (String language : languages) {
+			cache.put(_getCacheKey(_getFinderArgs(model, finderDefinition, language)), model);
+		}
+
 	}
 
 	protected List<M> findCacheResult(String finderName, Object... args) {
@@ -158,21 +192,51 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 		return cache.get(_getCacheKey(args));
 	}
 
+	protected M findUniqueCacheResult(String finderName, Object... args) {
+		Class<M> modelClass = _getModelClass();
+
+		GenericCache<M> cache = CacheUtil.getGenericCache(
+			_getCacheName(finderName), modelClass);
+
+		return cache.get(_getCacheKey(args));
+	}
+
 	protected abstract EntityManager getEntityManager();
 
 	protected abstract Class<J> getJpaModelClass();
 
-	protected void removeResult(String finderName, Object... args) {
+	protected boolean isNullModel(M model) {
+		return (model == _nullModel);
+	}
+
+	protected void removeResult(long primaryKey) {
+		GenericCache<M> cache = CacheUtil.getGenericCache(
+			_getCacheName(""), _getModelClass());
+
+		cache.remove(primaryKey);
+	}
+
+	protected void removeResult(String finderName, M model, FinderDefinition finderDefinition)
+		throws Exception {
+
 		GenericCache<M> cache = CacheUtil.getGenericCache(
 			_getCacheName(finderName), _getModelClass());
 
-		cache.remove(_getCacheKey(args));
+		if (!finderDefinition.hasLocalizedColumns()) {
+			cache.remove(_getCacheKey(_getFinderArgs(model, finderDefinition)));
+
+			return;
+		}
+
+		String[] languages = ModelConverter.getLocalizations(model, finderDefinition.getColumns());
+
+		for (String language : languages) {
+			cache.remove(_getCacheKey(_getFinderArgs(model, finderDefinition, language)));
+		}
 	}
 
 	@SuppressWarnings("unchecked")
 	protected Object runFinderQuery(TypedQuery<J> query, String finderName, Object... args) {
-		FinderDefinition finderDefinition = _finderDefinitions.get(finderName);
-
 		List<J> results = query.getResultList();
 
 		List<M> models = new ArrayList<>();
@@ -181,25 +245,25 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 			models.add((M)ModelConverter.toModel(jpaModel));
 		}
 
-		if ((finderDefinition != null) && finderDefinition.isUnique()) {
-			if (models.isEmpty()) {
-				return null;
-			}
+		FinderDefinition finderDefinition = _finderDefinitions.get(finderName);
 
-			M model = models.get(0);
-
-			cacheResult(model);
-
-			return model;
-		}
-
-		cacheResult(models);
-
-		if (finderDefinition != null) {
+		if ((finderDefinition == null) || !finderDefinition.isUnique()) {
 			cacheResult(models, finderName, args);
+
+			return models;
 		}
 
-		return models;
+		if (models.isEmpty()) {
+			cacheResult(_nullModel, finderName, args);
+
+			return null;
+		}
+
+		M model = models.get(0);
+
+		cacheResult(model, finderName, args);
+
+		return model;
 	}
 
 	protected J updateJpaModel(J jpaModel) {
@@ -208,29 +272,56 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 		return entityManager.merge(jpaModel);
 	}
 
-	private void _clearUniqueFindersCache(M model) {
+	private void _clearFindersCacheAfterDelete(M model) {
+		long primaryKey = ModelConverter.getPrimaryKey(model);
+
+		M originalModel = findUniqueCacheResult("", primaryKey);
+
+		if (originalModel == null) {
+			return;
+		}
+
+		removeResult(primaryKey);
+
+		for (String finderName : _finderDefinitions.keySet()) {
+			FinderDefinition finderDefinition = _finderDefinitions.get(finderName);
+
+			try {
+				removeResult(finderName, model, finderDefinition);
+			}
+			catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	private void _clearFindersCacheAfterUpdate(M model) {
 		M originalModel = findUniqueCacheResult("", ModelConverter.getPrimaryKey(model));
 
 		long changeMask = 0;
 
-		try {
-			changeMask = ModelConverter.getChangeMask(originalModel, model);
+		if (originalModel != null) {
+			try {
+				changeMask = ModelConverter.getChangeMask(originalModel, model);
+			}
+			catch (Exception e) {
+				CacheUtil.clearAllCache(model.getClass());
+			}
 		}
-		catch (Exception e) {
-			CacheUtil.clearAllCache(model.getClass());
+
+		if ((originalModel == null) || (changeMask == 0)) {
+			return;
 		}
 
 		for (String finderName : _finderDefinitions.keySet()) {
 			FinderDefinition finderDefinition = _finderDefinitions.get(finderName);
 
-			if (!finderDefinition.isUnique()) {
-				continue;
+			try {
+				removeResult(finderName, originalModel, finderDefinition);
+				removeResult(finderName, model, finderDefinition);
 			}
-
-			removeResult(finderName, _getFinderArgs(model, finderDefinition));
-
-			if ((changeMask & finderDefinition.getColumnBitmask()) != 0) {
-				removeResult(finderName, _getFinderArgs(originalModel, finderDefinition));
+			catch (Exception e) {
+				throw new RuntimeException(e);
 			}
 		}
 	}
@@ -240,43 +331,44 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 
 		long changeMask = 0;
 
-		try {
-			changeMask = ModelConverter.getChangeMask(originalModel, model);
-		}
-		catch (Exception e) {
-			CacheUtil.clearAllCache(model.getClass());
+		if (originalModel != null) {
+			try {
+				changeMask = ModelConverter.getChangeMask(originalModel, model);
+			}
+			catch (Exception e) {
+				CacheUtil.clearAllCache(model.getClass());
+			}
 		}
 
 		for (String finderName : _finderDefinitions.keySet()) {
 			FinderDefinition finderDefinition = _finderDefinitions.get(finderName);
 
+			if (changeMask > 0) {
+				try {
+					removeResult(finderName, originalModel, finderDefinition);
+				}
+				catch (Exception e) {
+					throw new RuntimeException(e);
+				}
+ 			}
+
 			if (!finderDefinition.isUnique()) {
 				continue;
 			}
 
-			if ((changeMask & finderDefinition.getColumnBitmask()) != 0) {
-				cacheResult(model, finderName, _getFinderArgs(model, finderDefinition));
+			if ((originalModel == null) || (changeMask > 0)) {
+				try {
+					cacheResult(finderDefinition, model);
+				}
+				catch (Exception e) {
+					throw new RuntimeException(e);
+				}
 			}
 		}
 	}
 
 	private String _getCacheKey(Object... args) {
-		StringBuilder sb = new StringBuilder();
-
-		for (Object arg : args) {
-			if (sb.length() > 0) {
-				sb.append("#");
-			}
-
-			if (arg == null) {
-				sb.append("null");
-			}
-			else {
-				sb.append(arg.toString());
-			}
-		}
-
-		return sb.toString();
+		return StringUtils.join(args, "#");
 	}
 
 	private String _getCacheName(String finderName) {
@@ -304,16 +396,31 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 	}
 
 	private Object[] _getFinderArgs(M model, FinderDefinition finderDefinition) {
+		return _getFinderArgs(model, finderDefinition, null);
+	}
+
+	private Object[] _getFinderArgs(M model, FinderDefinition finderDefinition, String language) {
 		String[] columns = finderDefinition.getColumns();
-		Object[] args = new Object[columns.length];
+
+		int argSize = columns.length;
+
+		if (language != null) {
+			argSize++;
+		}
+
+		Object[] args = new Object[argSize];
 
 		for (int i = 0; i < columns.length; i++) {
 			try {
-				args[i] = ModelConverter.getAttributeValue(model, columns[i]);
+				args[i] = ModelConverter.getAttributeValue(model, columns[i], language);
 			}
 			catch (Exception e) {
 				throw new RuntimeException(e);
 			}
+		}
+
+		if (language != null) {
+			args[argSize - 1] = language;
 		}
 
 		return args;
@@ -334,9 +441,11 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 				Class<?> returnType = method.getReturnType();
 
 				long columnBitmask = ModelConverter.getColumnBitmask(modelClass, finder.columns());
+				boolean localizedColumns = ModelConverter.containsLocalizedColumn(
+					modelClass, finder.columns());
 
 				FinderDefinition finderDefinition = new FinderDefinition(
-					method.getName(), finder.columns(), columnBitmask);
+					method.getName(), finder.columns(), columnBitmask, localizedColumns);
 
 				if (returnType.equals(modelClass)) {
 					finderDefinition.setUnique(true);
@@ -348,5 +457,6 @@ public abstract class BasePersistenceImpl<J, M> implements BasePersistence<J, M>
 	}
 
 	private Map<String, FinderDefinition> _finderDefinitions = new HashMap<>();
+	private M _nullModel;
 
 }

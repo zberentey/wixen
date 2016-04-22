@@ -3,9 +3,16 @@ package org.darkvault.wixen.jpa.model;
 public class FinderDefinition {
 
 	public FinderDefinition(String name, String[] columns, long columnBitmask) {
+		this(name, columns, columnBitmask, false);
+	}
+
+	public FinderDefinition(
+		String name, String[] columns, long columnBitmask, boolean localizedColumns) {
+
 		_columnBitmask = columnBitmask;
 		_columns = columns;
 		_name = name;
+		_localizedColumns = localizedColumns;
 	}
 
 	public long getColumnBitmask() {
@@ -20,6 +27,10 @@ public class FinderDefinition {
 		return _name;
 	}
 
+	public boolean hasLocalizedColumns() {
+		return _localizedColumns;
+	}
+
 	public boolean isUnique() {
 		return _unique;
 	}
@@ -31,6 +42,7 @@ public class FinderDefinition {
 	private long _columnBitmask;
 	private String[] _columns;
 	private String _name;
+	private boolean _localizedColumns;
 	private boolean _unique;
 
 }

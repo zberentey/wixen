@@ -38,6 +38,13 @@ public class ModelAttributeConverter {
 			_modelGetter = modelClass.getMethod(_toMethodName(_attributeName, "get"), new Class[0]);
 			_modelSetter = modelClass.getMethod(
 				_toMethodName(_attributeName, "set"), jpaModelGetter.getReturnType());
+
+			_localized = modelAttribute.localized();
+
+			if (_localized) {
+				_modelGetterLocalized = modelClass.getMethod(
+					_toMethodName(_attributeName, "get"), String.class);
+			}
 		}
 		catch (NoSuchMethodException nsme) {
 			_log.warn("Unable to register model attribute conversion. ", nsme);
@@ -96,12 +103,32 @@ public class ModelAttributeConverter {
 		return _modelGetter.invoke(model, new Object[0]);
 	}
 
+	public Object getAttributeValue(Object model, String language) throws Exception {
+		if (isJpaModel(model)) {
+			Object value = _jpaModelGetter.invoke(model, new Object[0]);
+
+			if (value != null) {
+				I18nString i18nValue = new I18nString(value.toString());
+
+				return i18nValue.get(language);
+			}
+
+			return value;
+		}
+
+		return _modelGetterLocalized.invoke(model, language);
+	}
+
 	public long getBitmask() {
 		return _bitmask;
 	}
 
 	public boolean isJpaModel(Object model) {
 		return model.getClass().isAssignableFrom(_jpaModelClass);
+	}
+
+	public boolean isLocalized() {
+		return _localized;
 	}
 
 	public boolean isPrimaryKeyAttribute() {
@@ -140,8 +167,10 @@ public class ModelAttributeConverter {
 	private Method _jpaModelGetter;
 	private String _jpaModelName;
 	private Method _jpaModelSetter;
+	private boolean _localized;
 	private Class<?> _modelClass;
 	private Method _modelGetter;
+	private Method _modelGetterLocalized;
 	private Method _modelSetter;
 
 }

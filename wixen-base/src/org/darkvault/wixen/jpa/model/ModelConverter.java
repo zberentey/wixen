@@ -5,13 +5,34 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.persistence.Id;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public abstract class ModelConverter {
+
+	public static boolean containsLocalizedColumn(Class<?> modelClass, String[] columns) {
+		List<ModelAttributeConverter> converters = _modelAttributeConverters.get(
+			modelClass.getName());
+
+		if (converters == null) {
+			throw new NoSuchModelConversionException(modelClass.getName());
+		}
+
+		String columnsJoined = StringUtils.join(columns, "#");
+
+		for (ModelAttributeConverter converter : converters) {
+			if (converter.isLocalized() && columnsJoined.contains(converter.getAttributeName())) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	public static Object fromModel(Object model) throws NoSuchModelConversionException {
 		return fromModel(model, null);
@@ -42,6 +63,12 @@ public abstract class ModelConverter {
 	}
 
 	public static Object getAttributeValue(Object model, String attributeName) throws Exception  {
+		return getAttributeValue(model, attributeName, null);
+	}
+
+	public static Object getAttributeValue(Object model, String attributeName, String language)
+		throws Exception  {
+
 		List<ModelAttributeConverter> converters = _modelAttributeConverters.get(
 			model.getClass().getName());
 
@@ -51,13 +78,19 @@ public abstract class ModelConverter {
 
 		for (ModelAttributeConverter converter : converters) {
 			if (attributeName.equals(converter.getAttributeName())) {
-				return converter.getAttributeValue(model);
+				if ((language == null) || !converter.isLocalized()) {
+					return converter.getAttributeValue(model);
+				}
+				else {
+					return converter.getAttributeValue(model, language);
+				}
 			}
 		}
 
 		throw new RuntimeException(
 			"No '" + attributeName + "' found in model " + model.getClass().getName());
 	}
+
 
 	public static long getChangeMask(Object originalModel, Object newModel) throws Exception {
 		long changeMask = 0;
@@ -115,6 +148,27 @@ public abstract class ModelConverter {
 		return bitmask;
 	}
 
+	public static String[] getLocalizations(Object model, String[] columns) throws Exception {
+		List<ModelAttributeConverter> converters = _modelAttributeConverters.get(
+			model.getClass().getName());
+
+		if (converters == null) {
+			throw new NoSuchModelConversionException(model.getClass().getName());
+		}
+
+		for (ModelAttributeConverter converter : converters) {
+			if (converter.isLocalized()) {
+				I18nString i18nValue = new I18nString((String)converter.getAttributeValue(model));
+
+				Set<String> languages = i18nValue.getLanguages();
+
+				return languages.toArray(new String[languages.size()]);
+			}
+		}
+
+		return new String[0];
+	}
+
 	public static Class<?> getModelClass(Class<?> jpaModelClass) {
 		Model model = jpaModelClass.getAnnotation(Model.class);
 
@@ -141,12 +195,21 @@ public abstract class ModelConverter {
 		}
 	}
 
+	public static Object newModel(Class<?> jpaModelClass) {
+		List<ModelAttributeConverter> converters = _modelAttributeConverters.get(
+			jpaModelClass.getName());
+
+		ModelAttributeConverter modelAttributeConverter = converters.get(0);
+
+		return modelAttributeConverter.newModel();
+	}
+
 	public static void registerJpaModel(Class<?> jpaModelClass) {
 		Model model = jpaModelClass.getAnnotation(Model.class);
 
 		if (model == null) {
 			_log.error(
-				"Unable to register JPA model, because it doesn't have a Model annotation on it");
+				"Unable to register JPA model, because it doesn't have the Model annotation");
 
 			throw new RuntimeException();
 		}
@@ -176,15 +239,21 @@ public abstract class ModelConverter {
 				}
 
 				converters.add(converter);
-
-				bitmask = bitmask * 2;
 			}
+
+			bitmask = bitmask * 2;
 		}
 
 		_modelAttributeConverters.put(jpaModelClass.getName(), converters);
 		_modelAttributeConverters.put(modelClass.getName(), converters);
 
 		_log.info("Registered jpa model converter for " + jpaModelClass.getName());
+	}
+
+	public static void setPrimaryKeyFromJpaModel(Object model, Object jpaModel) {
+		ModelAttributeConverter converter = _primaryConverters.get(model.getClass().getName());
+
+		converter.convertAttribute(jpaModel, model);
 	}
 
 	public static Object toModel(Object jpaModel) throws NoSuchModelConversionException {
