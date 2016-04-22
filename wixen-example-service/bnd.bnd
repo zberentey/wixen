@@ -3,7 +3,8 @@
 	org.amdatu.persistence2_1,\
 	wixen-base;version=latest,\
 	wixen-jta;version=latest,\
-	org.apache.felix.dependencymanager.annotation
+	org.apache.felix.dependencymanager.annotation,\
+	org.eclipse.persistence.core
 Bundle-Version: 1.0.0.${tstamp}
 Include-Resource: META-INF/persistence.xml=persistence/persistence.xml
 Meta-Persistence: META-INF/persistence.xml

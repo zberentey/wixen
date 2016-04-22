@@ -8,4 +8,6 @@ public interface ExamplePersistence extends BasePersistence<JpaExample, Example>
 
 	public Example findByCode(String countryCode);
 
+	public Example findByCodeJpa(String code);
+
 }

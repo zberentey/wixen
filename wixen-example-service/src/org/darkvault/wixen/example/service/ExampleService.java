@@ -14,4 +14,8 @@ public interface ExampleService {
 
 	public void initData();
 
+	public long runTest(long iterations);
+
+	public long runTestJpa(long iterations);
+
 }

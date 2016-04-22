@@ -17,7 +17,6 @@ public class ExampleServiceImpl implements ExampleService, ManagedTransactional{
 
 	@Start
 	public void activate() {
-		System.out.println("dsfsdfsdfdsffdsfds");
 	}
 
 	@Override
@@ -48,6 +47,28 @@ public class ExampleServiceImpl implements ExampleService, ManagedTransactional{
 		example.setName("NAME-1");
 
 		_examplePersistence.update(example);
+	}
+
+	@Override
+	public long runTest(long iterations) {
+		long start = System.currentTimeMillis();
+
+		for (long i = 0; i < iterations; i++) {
+			getExample("CODE-1");
+		}
+
+		return System.currentTimeMillis() - start;
+	}
+
+	@Override
+	public long runTestJpa(long iterations) {
+		long start = System.currentTimeMillis();
+
+		for (long i = 0; i < iterations; i++) {
+			_examplePersistence.findByCodeJpa("CODE-1");
+		}
+
+		return System.currentTimeMillis() - start;
 	}
 
 	@ServiceDependency

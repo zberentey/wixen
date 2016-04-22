@@ -5,16 +5,17 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.Table;
 
 import org.darkvault.wixen.example.model.Example;
 import org.darkvault.wixen.jpa.model.Model;
 import org.darkvault.wixen.jpa.model.ModelAttribute;
 
-@Cacheable
+@Cacheable(true)
 @Entity
 @Model(modelClass = Example.class)
-@Table(name = "example")
+@Table(name = "example", indexes = {@Index(name = "code_index",  columnList="code", unique = false)})
 public class JpaExample {
 
 	@ModelAttribute
