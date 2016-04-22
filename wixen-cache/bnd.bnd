@@ -1,6 +1,6 @@
 Bundle-Version: 1.0.0.${tstamp}
--buildpath:  \
-	../cnf/plugins/org.apache.felix.dependencymanager.annotation-3.2.0.jar;version=file,\
-	org.ops4j.pax.logging.pax-logging-api
+-buildpath: \
+	org.ops4j.pax.logging.pax-logging-api,\
+	org.apache.felix.dependencymanager.annotation
 Export-Package:  \
 	org.darkvault.wixen.cache
