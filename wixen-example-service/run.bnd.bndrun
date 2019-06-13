@@ -4,7 +4,8 @@
 
 -resolve.effective: active;skip:="osgi.service"
 
--runbundles:  \
+-runbundles: \
+	com.mysql.jdbc;version='[5.1.38,5.1.39)',\
 	org.amdatu.configurator.api;version='[1.0.0,1.0.1)',\
 	org.amdatu.configurator.properties;version='[1.0.0,1.0.1)',\
 	org.amdatu.jpa.adapter;version='[1.0.1,1.0.2)',\
@@ -32,18 +33,16 @@
 	org.eclipse.persistence.core;version='[2.6.0,2.6.1)',\
 	org.eclipse.persistence.jpa;version='[2.6.0,2.6.1)',\
 	org.eclipse.persistence.jpa.jpql;version='[2.6.0,2.6.1)',\
-	org.h2;version='[1.4.180,1.4.181)',\
 	org.ops4j.pax.logging.pax-logging-api;version='[1.7.0,1.7.1)',\
 	org.ops4j.pax.logging.pax-logging-service;version='[1.7.0,1.7.1)',\
-	osgi.enterprise;version='[4.2.0,4.2.1)',\
 	osgi.residential;version='[4.3.0,4.3.1)',\
-	wixen-base;version=latest,\
-	wixen-cache;version=latest,\
-	wixen-cache-simple;version=latest,\
-	wixen-example-service;version=latest,\
-	wixen-jta;version=latest
+	wixen-base;version=snapshot,\
+	wixen-cache;version=snapshot,\
+	wixen-cache-simple;version=snapshot,\
+	wixen-example-service;version=snapshot,\
+	wixen-jta;version=snapshot
 
--runrequires:  \
+-runrequires: \
 	osgi.identity;filter:='(osgi.identity=org.apache.felix.gogo.shell)',\
 	osgi.identity;filter:='(osgi.identity=org.ops4j.pax.logging.pax-logging-api)',\
 	osgi.identity;filter:='(osgi.identity=org.ops4j.pax.logging.pax-logging-service)',\
@@ -65,5 +64,5 @@
 	osgi.identity;filter:='(osgi.identity=org.apache.felix.eventadmin)',\
 	osgi.identity;filter:='(osgi.identity=wixen-example-service)',\
 	osgi.identity;filter:='(osgi.identity=wixen-cache-simple)',\
-	osgi.identity;filter:='(osgi.identity=org.h2)',\
-	osgi.identity;filter:='(osgi.identity=org.apache.felix.gogo.command)'
+	osgi.identity;filter:='(osgi.identity=org.apache.felix.gogo.command)',\
+	osgi.identity;filter:='(osgi.identity=com.mysql.jdbc)'
